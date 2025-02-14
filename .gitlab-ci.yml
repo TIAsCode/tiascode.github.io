@@ -1,0 +1,78 @@
+image: node:latest
+
+stages:
+  - setup
+  - test
+  - lint
+  - build
+  - deploy
+
+# Global cache configuration
+cache:
+  key:
+    files:
+      - package-lock.json
+  paths:
+    - node_modules/
+  policy: pull
+
+# Install dependencies
+setup:
+  stage: setup
+  cache:
+    policy: pull-push
+  script:
+    - npm ci
+  artifacts:
+    paths:
+      - node_modules/
+
+# Optional: Run tests (non-blocking)
+test:
+  stage: test
+  script:
+    - npm run test
+  allow_failure: true  # Makes this job optional
+  dependencies:
+    - setup
+
+# Optional: Run linting (non-blocking)
+lint:
+  stage: lint
+  script:
+    - npm run lint
+  allow_failure: true  # Makes this job optional
+  dependencies:
+    - setup
+
+# Build the application
+build:
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+  dependencies:
+    - setup
+
+# Deploy to GitLab Pages
+pages:
+  stage: deploy
+  script:
+    # Create a temporary directory for the build
+    - mkdir -p temp_public
+    # Copy existing public folder content to temp directory
+    - cp -r public/* temp_public/ || true
+    # Copy build output over the temp directory
+    - cp -r dist/* temp_public/
+    # Replace public folder with merged content
+    - rm -rf public
+    - mv temp_public public
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  dependencies:
+    - build
